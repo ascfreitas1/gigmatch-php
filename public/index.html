@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GigMatch – Conecte Música ao Vivo com Eventos</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Google Identity Services -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <!-- Facebook SDK -->
+  <script>
+    window.fbAsyncInit = function() {
+      FB.init({ appId: window.FACEBOOK_APP_ID || '0', cookie: true, xfbml: false, version: 'v19.0' });
+    };
+  </script>
+  <script async defer src="https://connect.facebook.net/en_US/sdk.js"></script>
+  <style>
+    :root{ --primary:#7C3AED;--primary-dark:#5B21B6;--secondary:#F59E0B;--dark:#111827;--surface:#1F2937; }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:'Inter',system-ui,sans-serif;background:#0F172A;color:#E2E8F0;}
+    .page{display:none;}.page.active{display:block;}
+    .section{display:none;}.section.active{display:block;}
+    .glass{background:rgba(255,255,255,.05);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.1);}
+    .btn-primary{background:linear-gradient(135deg,#7C3AED,#5B21B6);color:#fff;padding:10px 24px;border-radius:8px;border:none;cursor:pointer;font-weight:600;transition:all .2s;}
+    .btn-primary:hover{transform:translateY(-1px);box-shadow:0 4px 20px rgba(124,58,237,.4);}
+    .btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+    .btn-secondary{background:rgba(255,255,255,.1);color:#fff;padding:10px 24px;border-radius:8px;border:1px solid rgba(255,255,255,.2);cursor:pointer;font-weight:600;transition:all .2s;}
+    .btn-secondary:hover{background:rgba(255,255,255,.18);}
+    .btn-success{background:linear-gradient(135deg,#10B981,#059669);color:#fff;padding:8px 20px;border-radius:6px;border:none;cursor:pointer;font-weight:600;}
+    .btn-danger{background:linear-gradient(135deg,#EF4444,#DC2626);color:#fff;padding:8px 20px;border-radius:6px;border:none;cursor:pointer;font-weight:600;}
+    .btn-warning{background:linear-gradient(135deg,#F59E0B,#D97706);color:#fff;padding:8px 20px;border-radius:6px;border:none;cursor:pointer;font-weight:600;}
+    .btn-sm{padding:6px 14px;font-size:13px;border-radius:6px;}
+    .input-field{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:10px 14px;color:#fff;width:100%;font-size:14px;transition:border .2s;}
+    .input-field:focus{outline:none;border-color:#7C3AED;background:rgba(124,58,237,.1);}
+    .input-field option{background:#1F2937;}
+    .input-field::placeholder{color:#64748B;}
+    .select-field{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:10px 14px;color:#fff;width:100%;font-size:14px;}
+    .select-field:focus{outline:none;border-color:#7C3AED;}
+    .card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:20px;transition:all .2s;}
+    .card:hover{border-color:rgba(124,58,237,.4);box-shadow:0 4px 20px rgba(0,0,0,.3);}
+    .card-flat{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:16px;}
+    .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;}
+    .badge-purple{background:rgba(124,58,237,.2);color:#A78BFA;border:1px solid rgba(124,58,237,.3);}
+    .badge-green{background:rgba(16,185,129,.2);color:#34D399;border:1px solid rgba(16,185,129,.3);}
+    .badge-yellow{background:rgba(245,158,11,.2);color:#FCD34D;border:1px solid rgba(245,158,11,.3);}
+    .badge-red{background:rgba(239,68,68,.2);color:#FCA5A5;border:1px solid rgba(239,68,68,.3);}
+    .badge-blue{background:rgba(59,130,246,.2);color:#93C5FD;border:1px solid rgba(59,130,246,.3);}
+    .badge-cyan{background:rgba(6,182,212,.2);color:#67E8F9;border:1px solid rgba(6,182,212,.3);}
+    .nav-link{padding:8px 16px;border-radius:8px;cursor:pointer;transition:all .2s;color:#94A3B8;font-weight:500;display:flex;align-items:center;gap:10px;}
+    .nav-link:hover,.nav-link.active{background:rgba(124,58,237,.2);color:#A78BFA;}
+    .star{color:#F59E0B;}.star.empty{color:#374151;}
+    .tab{padding:8px 16px;border-radius:6px;cursor:pointer;color:#94A3B8;font-size:13px;font-weight:500;border:none;background:transparent;}
+    .tab.active{background:rgba(124,58,237,.2);color:#A78BFA;}
+    .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:1000;overflow-y:auto;}
+    .modal.open{display:flex;align-items:flex-start;justify-content:center;padding:20px;}
+    .modal-content{background:#1E293B;border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:28px;width:100%;max-width:680px;margin-top:30px;}
+    .modal-content.wide{max-width:900px;}
+    .sidebar{width:260px;min-height:100vh;background:#111827;border-right:1px solid rgba(255,255,255,.08);position:fixed;top:0;left:0;overflow-y:auto;z-index:100;}
+    .main-content{margin-left:260px;min-height:100vh;padding:28px;}
+    @media(max-width:768px){.sidebar{transform:translateX(-100%)}.main-content{margin-left:0}.sidebar.open{transform:translateX(0)}}
+    .avatar{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#7C3AED,#5B21B6);display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;flex-shrink:0;}
+    .score-bar{height:6px;border-radius:3px;background:rgba(255,255,255,.1);overflow:hidden;}
+    .score-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,#7C3AED,#F59E0B);}
+    .loading{display:flex;align-items:center;justify-content:center;padding:40px;}
+    .spinner{width:28px;height:28px;border:3px solid rgba(124,58,237,.3);border-top-color:#7C3AED;border-radius:50%;animation:spin .8s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .toast{position:fixed;bottom:20px;right:20px;z-index:9999;padding:12px 20px;border-radius:10px;font-weight:600;max-width:360px;animation:slideIn .3s ease;box-shadow:0 4px 24px rgba(0,0,0,.4);}
+    @keyframes slideIn{from{transform:translateX(110px);opacity:0}to{transform:translateX(0);opacity:1}}
+    .hero-gradient{background:linear-gradient(135deg,#0F172A 0%,#1E1B4B 50%,#0F172A 100%);}
+    .grid-performers{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px;}
+    .grid-events{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px;}
+    ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:#0F172A}::-webkit-scrollbar-thumb{background:#374151;border-radius:3px}
+    .notification-dot{width:8px;height:8px;background:#EF4444;border-radius:50%;position:absolute;top:2px;right:2px;}
+    .lang-toggle{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:20px;padding:4px 6px;display:flex;gap:4px;cursor:pointer;}
+    .lang-btn{padding:3px 10px;border-radius:16px;font-size:12px;font-weight:700;transition:all .15s;border:none;cursor:pointer;background:transparent;color:#94A3B8;}
+    .lang-btn.active{background:linear-gradient(135deg,#7C3AED,#5B21B6);color:#fff;}
+    /* Profile tabs */
+    .profile-tab{padding:10px 18px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;border:none;background:transparent;color:#94A3B8;white-space:nowrap;}
+    .profile-tab.active{background:rgba(124,58,237,.25);color:#C4B5FD;}
+    .profile-tab-bar{display:flex;gap:4px;overflow-x:auto;padding-bottom:4px;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:24px;}
+    .profile-tab-bar::-webkit-scrollbar{height:3px}
+    /* Media grid */
+    .media-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;}
+    .yt-thumb{border-radius:10px;overflow:hidden;position:relative;aspect-ratio:16/9;background:#0F172A;cursor:pointer;}
+    .yt-thumb iframe{width:100%;height:100%;border:0;}
+    .yt-thumb-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5);transition:background .2s;}
+    .yt-thumb-overlay:hover{background:rgba(0,0,0,.3);}
+    .audio-card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:14px;}
+    .audio-player{width:100%;height:36px;accent-color:#7C3AED;}
+    /* Streaming links */
+    .streaming-link{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);text-decoration:none;color:#fff;transition:all .2s;font-size:14px;}
+    .streaming-link:hover{border-color:rgba(124,58,237,.4);background:rgba(124,58,237,.08);}
+    /* Rating stars interactive */
+    .star-rating-btn{font-size:28px;cursor:pointer;transition:transform .1s;border:none;background:none;padding:4px;}
+    .star-rating-btn:hover{transform:scale(1.2);}
+    /* Section header */
+    .section-hdr{display:flex;flex-direction:column;gap:4px;margin-bottom:24px;}
+    .section-hdr h1{font-size:1.5rem;font-weight:800;color:#fff;margin:0;}
+    .section-hdr p{color:#94A3B8;margin:0;font-size:.9rem;}
+    /* Info rows in profile view */
+    .info-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06);}
+    .info-row:last-child{border-bottom:none;}
+    .info-label{color:#94A3B8;font-size:13px;}
+    .info-value{color:#E2E8F0;font-size:13px;font-weight:600;text-align:right;max-width:60%;}
+    /* Artist Carousel */
+    .carousel-wrapper{position:relative;overflow:hidden;}
+    .carousel-track{display:flex;gap:16px;transition:transform .5s cubic-bezier(.4,0,.2,1);}
+    .carousel-card{flex-shrink:0;width:240px;border-radius:16px;overflow:hidden;position:relative;cursor:pointer;border:2px solid rgba(255,255,255,.08);transition:all .3s;}
+    .carousel-card:hover{transform:translateY(-6px);border-color:rgba(124,58,237,.5);box-shadow:0 12px 32px rgba(124,58,237,.25);}
+    .carousel-card img{width:100%;height:200px;object-fit:cover;display:block;}
+    .carousel-card-overlay{position:absolute;bottom:0;left:0;right:0;padding:16px 14px 14px;background:linear-gradient(to top,rgba(0,0,0,.9),transparent);}
+    .carousel-dots{display:flex;justify-content:center;gap:6px;margin-top:16px;}
+    .carousel-dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.2);cursor:pointer;transition:all .2s;border:none;}
+    .carousel-dot.active{background:#7C3AED;width:24px;border-radius:4px;}
+    /* Wizard styles */
+    .wizard-option{padding:14px 18px;border-radius:12px;border:2px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);cursor:pointer;transition:all .2s;text-align:left;width:100%;color:#fff;}
+    .wizard-option:hover,.wizard-option.selected{border-color:#7C3AED;background:rgba(124,58,237,.15);}
+    .wizard-option.selected{border-color:#A78BFA;}
+    .wizard-option-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;}
+    .wizard-emoji{font-size:2rem;margin-bottom:6px;display:block;}
+    .wizard-hint{background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.2);border-radius:10px;padding:12px 16px;font-size:13px;color:#C4B5FD;margin-bottom:20px;}
+    .act-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;border:2px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);cursor:pointer;transition:all .2s;font-size:13px;color:#94A3B8;margin:4px;}
+    .act-chip.selected{border-color:#7C3AED;background:rgba(124,58,237,.2);color:#A78BFA;}
+    .act-chip:hover{border-color:rgba(124,58,237,.5);color:#C4B5FD;}
+    /* Improved performer card */
+    .perf-card-img{width:56px;height:56px;border-radius:50%;object-fit:cover;flex-shrink:0;}
+    /* Host profile improved */
+    .host-section-title{font-size:1.1rem;font-weight:700;color:#fff;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.08);}
+    /* Social OAuth buttons */
+    .social-oauth-btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 16px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.06);color:#fff;font-weight:600;font-size:14px;cursor:pointer;transition:all .2s;width:100%;}
+    .social-oauth-btn:hover{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.3);transform:translateY(-1px);}
+    .social-oauth-btn:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+    /* OAuth badge in sidebar */
+    .oauth-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;}
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════ LANDING ══════════════════════════════ -->
+<div id="landing-page" class="page active">
+  <nav class="fixed top-0 w-full z-50" style="background:rgba(15,23,42,.96);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,.08);">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <span class="text-2xl">🎵</span>
+        <span class="text-xl font-bold text-white">GigMatch</span>
+      </div>
+      <div class="hidden md:flex gap-6 text-sm text-slate-300">
+        <a href="#how" class="hover:text-white transition-colors" data-i18n="nav_how">Como Funciona</a>
+        <a href="#performers" class="hover:text-white transition-colors" data-i18n="nav_performers">Para Artistas</a>
+        <a href="#hosts" class="hover:text-white transition-colors" data-i18n="nav_hosts">Para Contratantes</a>
+      </div>
+      <div class="flex gap-2 items-center">
+        <!-- Language toggle -->
+        <div class="lang-toggle" id="lang-toggle-landing">
+          <button class="lang-btn active" id="lang-pt-landing" onclick="setLang('pt')">PT</button>
+          <button class="lang-btn" id="lang-en-landing" onclick="setLang('en')">EN</button>
+        </div>
+        <button onclick="showPage('login-page')" class="btn-secondary text-sm py-2 px-4" data-i18n="nav_signin">Entrar</button>
+        <button onclick="showPage('register-page')" class="btn-primary text-sm py-2 px-4" data-i18n="nav_start">Começar</button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero-gradient min-h-screen flex items-center pt-16">
+    <div class="max-w-7xl mx-auto px-6 py-20 text-center">
+      <div class="inline-block badge badge-purple mb-6 text-sm" data-i18n="hero_badge">🚀 O Futuro da Contratação de Música ao Vivo</div>
+      <h1 class="text-5xl md:text-7xl font-black text-white mb-6 leading-tight">
+        <span data-i18n="hero_h1a">Conecte Música ao Vivo</span><br>
+        <span style="background:linear-gradient(135deg,#7C3AED,#F59E0B);-webkit-background-clip:text;-webkit-text-fill-color:transparent;" data-i18n="hero_h1b">ao Evento Perfeito</span>
+      </h1>
+      <p class="text-xl text-slate-300 mb-10 max-w-2xl mx-auto" data-i18n="hero_sub">Conecte bandas, DJs, solistas e conjuntos com contratantes. Pagamentos seguros em custódia, perfis verificados e tecnologia de geo-localização.</p>
+      <div class="flex flex-col sm:flex-row gap-4 justify-center">
+        <button onclick="showRegisterAs('performer')" class="btn-primary text-lg py-4 px-8" data-i18n="hero_btn_performer">🎸 Sou Artista / Músico</button>
+        <button onclick="showRegisterAs('host')" class="btn-secondary text-lg py-4 px-8" data-i18n="hero_btn_host">🎪 Preciso de Entretenimento</button>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mt-16 max-w-3xl mx-auto">
+        <div class="text-center"><div class="text-3xl font-black text-white">10K+</div><div class="text-slate-400 text-sm" data-i18n="stat_artists">Artistas</div></div>
+        <div class="text-center"><div class="text-3xl font-black text-white">5K+</div><div class="text-slate-400 text-sm" data-i18n="stat_events">Shows Realizados</div></div>
+        <div class="text-center"><div class="text-3xl font-black text-white">98%</div><div class="text-slate-400 text-sm" data-i18n="stat_sat">Satisfação</div></div>
+        <div class="text-center"><div class="text-3xl font-black text-white">50+</div><div class="text-slate-400 text-sm" data-i18n="stat_cities">Cidades</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Artist Types Carousel -->
+  <section class="py-16 px-6 overflow-hidden" style="background:#0F172A;">
+    <div class="max-w-7xl mx-auto">
+      <div class="flex items-center justify-between mb-8">
+        <div>
+          <h2 class="text-3xl font-bold text-white mb-2" data-i18n="carousel_title">Conheça os Artistas</h2>
+          <p class="text-slate-400" data-i18n="carousel_sub">De bandas de jazz a DJs, encontramos o talento perfeito para o seu evento</p>
+        </div>
+        <div class="hidden md:flex gap-2">
+          <button onclick="carouselPrev()" class="btn-secondary py-2 px-4"><i class="fas fa-chevron-left"></i></button>
+          <button onclick="carouselNext()" class="btn-secondary py-2 px-4"><i class="fas fa-chevron-right"></i></button>
+        </div>
+      </div>
+      <div class="carousel-wrapper">
+        <div id="artist-carousel" class="carousel-track">
+          <!-- Cards injected by JS -->
+        </div>
+      </div>
+      <div id="carousel-dots" class="carousel-dots"></div>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section id="how" class="py-20 px-6" style="background:#111827;">
+    <div class="max-w-6xl mx-auto">
+      <h2 class="text-4xl font-bold text-white text-center mb-4" data-i18n="how_title">Como Funciona o GigMatch</h2>
+      <p class="text-slate-400 text-center mb-16" data-i18n="how_sub">Simples, seguro e sem complicações</p>
+      <div class="grid md:grid-cols-3 gap-8">
+        <div class="text-center">
+          <div class="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl" style="background:rgba(124,58,237,.2);border:1px solid rgba(124,58,237,.3);">📝</div>
+          <h3 class="text-xl font-bold text-white mb-2" data-i18n="how_1_title">1. Crie seu Perfil</h3>
+          <p class="text-slate-400" data-i18n="how_1_desc">Artistas adicionam seu portfólio, vídeos e valores. Contratantes descrevem o evento e necessidades.</p>
+        </div>
+        <div class="text-center">
+          <div class="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl" style="background:rgba(245,158,11,.2);border:1px solid rgba(245,158,11,.3);">🗺️</div>
+          <h3 class="text-xl font-bold text-white mb-2" data-i18n="how_2_title">2. Match por Localização</h3>
+          <p class="text-slate-400" data-i18n="how_2_desc">Nosso algoritmo encontra artistas próximos que correspondem aos critérios do evento.</p>
+        </div>
+        <div class="text-center">
+          <div class="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl" style="background:rgba(16,185,129,.2);border:1px solid rgba(16,185,129,.3);">💸</div>
+          <h3 class="text-xl font-bold text-white mb-2" data-i18n="how_3_title">3. Contrate com Segurança</h3>
+          <p class="text-slate-400" data-i18n="how_3_desc">Pagamentos em custódia. Liberados somente após ambas as partes avaliarem o show.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- For Performers -->
+  <section id="performers" class="py-20 px-6" style="background:#0F172A;">
+    <div class="max-w-6xl mx-auto grid md:grid-cols-2 gap-12 items-center">
+      <div>
+        <h2 class="text-4xl font-bold text-white mb-6" data-i18n="perf_title">Para Artistas & Músicos</h2>
+        <div class="space-y-4">
+          <div class="flex gap-3"><span class="text-green-400 mt-1">✓</span><div><strong class="text-white" data-i18n="perf_f1_t">Notificações georreferenciadas</strong><p class="text-slate-400 text-sm" data-i18n="perf_f1_d">Seja avisado quando eventos compatíveis forem postados na sua região.</p></div></div>
+          <div class="flex gap-3"><span class="text-green-400 mt-1">✓</span><div><strong class="text-white" data-i18n="perf_f2_t">Sistema de pontuação</strong><p class="text-slate-400 text-sm" data-i18n="perf_f2_d">Compartilhe nas redes sociais para ganhar pontos e subir nas buscas.</p></div></div>
+          <div class="flex gap-3"><span class="text-green-400 mt-1">✓</span><div><strong class="text-white" data-i18n="perf_f3_t">Pagamento garantido em custódia</strong><p class="text-slate-400 text-sm" data-i18n="perf_f3_d">Receba de forma confiável após cada show — 80% do valor contratado.</p></div></div>
+          <div class="flex gap-3"><span class="text-green-400 mt-1">✓</span><div><strong class="text-white" data-i18n="perf_f4_t">Portfólio multimídia</strong><p class="text-slate-400 text-sm" data-i18n="perf_f4_d">Exiba vídeos do YouTube, áudios, Spotify, SoundCloud e muito mais.</p></div></div>
+        </div>
+        <button onclick="showRegisterAs('performer')" class="btn-primary mt-8" data-i18n="perf_cta">Cadastrar como Artista →</button>
+      </div>
+      <div style="background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.2);border-radius:16px;padding:28px;" class="space-y-3">
+        <div class="flex items-center gap-3 p-3 rounded-lg" style="background:rgba(255,255,255,.05);">
+          <span class="text-2xl">🎸</span>
+          <div><div class="text-white font-semibold">The Jazz Collective</div><div class="text-slate-400 text-sm">⭐ 4.9 · 127 shows · Banda de Jazz</div></div>
+          <div class="ml-auto text-purple-400 font-bold">R$300/h</div>
+        </div>
+        <div class="flex items-center gap-3 p-3 rounded-lg" style="background:rgba(255,255,255,.05);">
+          <span class="text-2xl">🎹</span>
+          <div><div class="text-white font-semibold">Maria Santos</div><div class="text-slate-400 text-sm">⭐ 4.8 · 89 shows · Pianista Solo</div></div>
+          <div class="ml-auto text-purple-400 font-bold">R$200/h</div>
+        </div>
+        <div class="flex items-center gap-3 p-3 rounded-lg" style="background:rgba(255,255,255,.05);">
+          <span class="text-2xl">🎧</span>
+          <div><div class="text-white font-semibold">DJ Maxxx</div><div class="text-slate-400 text-sm">⭐ 4.7 · 203 shows · DJ</div></div>
+          <div class="ml-auto text-purple-400 font-bold">R$350/h</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- For Hosts -->
+  <section id="hosts" class="py-20 px-6" style="background:#111827;">
+    <div class="max-w-6xl mx-auto grid md:grid-cols-2 gap-12 items-center">
+      <div style="background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.2);border-radius:16px;padding:28px;">
+        <div class="space-y-3">
+          <div class="flex items-center gap-3"><span class="badge badge-yellow">Casamento</span><span class="text-white">Casamento A&J · 15 Jun</span></div>
+          <div class="flex items-center gap-3"><span class="badge badge-blue">Corporativo</span><span class="text-white">TechConf 2025 · 3 Jul</span></div>
+          <div class="flex items-center gap-3"><span class="badge badge-purple">Festa Privada</span><span class="text-white">Festa na Cobertura · 20 Jul</span></div>
+          <div class="mt-4 p-3 rounded-lg" style="background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.2);">
+            <div class="text-green-400 text-sm font-semibold">✓ 8 artistas encontrados para o seu evento!</div>
+            <div class="text-slate-400 text-xs mt-1">Em 25km · Gênero Jazz & Pop · 4+ estrelas</div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <h2 class="text-4xl font-bold text-white mb-6" data-i18n="host_title">Para Contratantes & Organizadores</h2>
+        <div class="space-y-4">
+          <div class="flex gap-3"><span class="text-yellow-400 mt-1">✓</span><div><strong class="text-white" data-i18n="host_f1_t">Match inteligente</strong><p class="text-slate-400 text-sm" data-i18n="host_f1_d">Filtre por gênero, tipo de atração, orçamento, distância e avaliações.</p></div></div>
+          <div class="flex gap-3"><span class="text-yellow-400 mt-1">✓</span><div><strong class="text-white" data-i18n="host_f2_t">Todos os tipos de evento</strong><p class="text-slate-400 text-sm" data-i18n="host_f2_d">Casamentos, corporativos, bares, lançamentos, festas e muito mais.</p></div></div>
+          <div class="flex gap-3"><span class="text-yellow-400 mt-1">✓</span><div><strong class="text-white" data-i18n="host_f3_t">Proteção contra disputas</strong><p class="text-slate-400 text-sm" data-i18n="host_f3_d">Dinheiro liberado somente após sua confirmação de que tudo correu bem.</p></div></div>
+          <div class="flex gap-3"><span class="text-yellow-400 mt-1">✓</span><div><strong class="text-white" data-i18n="host_f4_t">Artistas verificados</strong><p class="text-slate-400 text-sm" data-i18n="host_f4_d">Perfis completos com avaliações verificadas e portfólios reais.</p></div></div>
+        </div>
+        <button onclick="showRegisterAs('host')" class="btn-primary mt-8" style="background:linear-gradient(135deg,#F59E0B,#D97706);" data-i18n="host_cta">Publicar Evento →</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="py-20 px-6 text-center hero-gradient">
+    <div class="max-w-2xl mx-auto">
+      <h2 class="text-4xl font-bold text-white mb-4" data-i18n="cta_title">Pronto para Fazer a Música Acontecer?</h2>
+      <p class="text-slate-300 mb-8" data-i18n="cta_sub">Junte-se a milhares de artistas e contratantes no GigMatch</p>
+      <div class="flex flex-col sm:flex-row gap-4 justify-center">
+        <button onclick="showRegisterAs('performer')" class="btn-primary text-lg py-4 px-8" data-i18n="cta_btn1">Começar a Tocar</button>
+        <button onclick="showRegisterAs('host')" class="btn-secondary text-lg py-4 px-8" data-i18n="cta_btn2">Organizar Evento</button>
+      </div>
+    </div>
+  </section>
+  <footer class="py-8 px-6 text-center text-slate-500 text-sm" style="background:#0A0F1E;border-top:1px solid rgba(255,255,255,.05);">
+    <p>© 2025 GigMatch · Conectando Música ao Vivo a Eventos Perfeitos · Comissão: 20%</p>
+  </footer>
+</div>
+
+<!-- ══════════════════════════════════ LOGIN ══════════════════════════════════ -->
+<div id="login-page" class="page">
+  <div class="min-h-screen flex items-center justify-center p-6" style="background:#0F172A;">
+    <div style="width:100%;max-width:440px;">
+      <div class="text-center mb-8">
+        <button onclick="showPage('landing-page')" class="text-slate-400 hover:text-white mb-4 text-sm"><i class="fas fa-arrow-left mr-2"></i><span data-i18n="back">Voltar</span></button>
+        <div class="text-4xl mb-3">🎵</div>
+        <h1 class="text-3xl font-bold text-white" data-i18n="login_title">Bem-vindo de Volta</h1>
+        <p class="text-slate-400 mt-2" data-i18n="login_sub">Entre na sua conta GigMatch</p>
+      </div>
+      <div class="card">
+        <form onsubmit="handleLogin(event)">
+          <div class="mb-4">
+            <label class="block text-sm text-slate-300 mb-2" data-i18n="email">E-mail</label>
+            <input type="email" id="login-email" class="input-field" placeholder="voce@exemplo.com" required>
+          </div>
+          <div class="mb-6">
+            <label class="block text-sm text-slate-300 mb-2" data-i18n="password">Senha</label>
+            <input type="password" id="login-password" class="input-field" placeholder="••••••••" required autocomplete="current-password">
+          </div>
+          <button type="submit" class="btn-primary w-full" data-i18n="login_btn">Entrar</button>
+          <div id="login-error" class="text-red-400 text-sm mt-3 text-center hidden"></div>
+        </form>
+        <div class="mt-4 text-center text-slate-400 text-sm">
+          <span data-i18n="login_no_acc">Não tem conta?</span>
+          <button onclick="showPage('register-page')" class="text-purple-400 hover:text-purple-300 font-semibold ml-1" data-i18n="register">Cadastre-se</button>
+        </div>
+        <!-- Social Login Divider -->
+        <div class="mt-5 flex items-center gap-3">
+          <div class="flex-1 h-px" style="background:rgba(255,255,255,.1);"></div>
+          <span class="text-slate-500 text-xs" id="login-social-or">ou continue com</span>
+          <div class="flex-1 h-px" style="background:rgba(255,255,255,.1);"></div>
+        </div>
+        <div class="grid grid-cols-2 gap-3 mt-3">
+          <button onclick="socialLogin('google')" class="social-oauth-btn">
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:18px;height:18px;">
+            Google
+          </button>
+          <button onclick="socialLogin('facebook')" class="social-oauth-btn" style="background:rgba(24,119,242,.15);border-color:rgba(24,119,242,.3);">
+            <i class="fab fa-facebook-f" style="color:#1877F2;font-size:16px;"></i>
+            Facebook
+          </button>
+        </div>
+
+        <div class="mt-4 pt-3 border-t border-white/10 flex justify-center gap-4 text-xs text-slate-500">
+          <button onclick="demoLogin('performer')" class="hover:text-slate-300">Demo Artista</button>
+          <button onclick="demoLogin('host')" class="hover:text-slate-300">Demo Contratante</button>
+          <button onclick="demoLogin('admin')" class="hover:text-slate-300">Demo Admin</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════ REGISTER ══════════════════════════════ -->
+<div id="register-page" class="page">
+  <div class="min-h-screen flex items-center justify-center p-6" style="background:#0F172A;">
+    <div style="width:100%;max-width:520px;">
+      <div class="text-center mb-8">
+        <button onclick="showPage('landing-page')" class="text-slate-400 hover:text-white mb-4 text-sm"><i class="fas fa-arrow-left mr-2"></i><span data-i18n="back">Voltar</span></button>
+        <div class="text-4xl mb-3">🎵</div>
+        <h1 class="text-3xl font-bold text-white" data-i18n="reg_title">Crie sua Conta</h1>
+      </div>
+      <div class="flex gap-3 mb-6">
+        <button id="role-performer-btn" onclick="selectRole('performer')" class="flex-1 p-4 rounded-xl border-2 text-center cursor-pointer transition-all" style="border-color:#7C3AED;background:rgba(124,58,237,.15);">
+          <div class="text-2xl mb-1">🎸</div>
+          <div class="font-bold text-white" data-i18n="role_performer">Artista / Músico</div>
+          <div class="text-xs text-slate-400" data-i18n="role_performer_sub">Músicos, DJs, Artistas</div>
+        </button>
+        <button id="role-host-btn" onclick="selectRole('host')" class="flex-1 p-4 rounded-xl border-2 text-center cursor-pointer transition-all" style="border-color:rgba(255,255,255,.1);background:rgba(255,255,255,.03);">
+          <div class="text-2xl mb-1">🎪</div>
+          <div class="font-bold text-white" data-i18n="role_host">Contratante</div>
+          <div class="text-xs text-slate-400" data-i18n="role_host_sub">Organizadores, Locais, Clientes</div>
+        </button>
+      </div>
+      <div class="card">
+        <form onsubmit="handleRegister(event)" class="space-y-4">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm text-slate-300 mb-1" data-i18n="full_name">Nome Completo *</label>
+              <input type="text" id="reg-name" class="input-field" required>
+            </div>
+            <div>
+              <label class="block text-sm text-slate-300 mb-1" data-i18n="phone">Telefone</label>
+              <input type="tel" id="reg-phone" class="input-field" placeholder="+55 11 9...">
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm text-slate-300 mb-1" data-i18n="email">E-mail *</label>
+            <input type="email" id="reg-email" class="input-field" required>
+          </div>
+          <div>
+            <label class="block text-sm text-slate-300 mb-1" data-i18n="password_min">Senha * (mín. 8 caracteres)</label>
+            <input type="password" id="reg-password" class="input-field" required autocomplete="new-password">
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm text-slate-300 mb-1" data-i18n="city">Cidade</label>
+              <input type="text" id="reg-city" class="input-field" placeholder="São Paulo">
+            </div>
+            <div>
+              <label class="block text-sm text-slate-300 mb-1" data-i18n="country">País</label>
+              <input type="text" id="reg-country" class="input-field" placeholder="Brasil" value="Brasil">
+            </div>
+          </div>
+          <input type="hidden" id="reg-role" value="performer">
+          <button type="submit" class="btn-primary w-full" data-i18n="create_account">Criar Conta</button>
+          <div id="reg-error" class="text-red-400 text-sm text-center hidden"></div>
+          <div id="reg-success" class="text-green-400 text-sm text-center hidden"></div>
+        </form>
+        <!-- Social Register Divider -->
+        <div class="flex items-center gap-3 mt-1">
+          <div class="flex-1 h-px" style="background:rgba(255,255,255,.1);"></div>
+          <span class="text-slate-500 text-xs" id="reg-social-or">ou cadastre com</span>
+          <div class="flex-1 h-px" style="background:rgba(255,255,255,.1);"></div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <button type="button" onclick="socialLoginWithRole('google')" class="social-oauth-btn">
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:18px;height:18px;">
+            Google
+          </button>
+          <button type="button" onclick="socialLoginWithRole('facebook')" class="social-oauth-btn" style="background:rgba(24,119,242,.15);border-color:rgba(24,119,242,.3);">
+            <i class="fab fa-facebook-f" style="color:#1877F2;font-size:16px;"></i>
+            Facebook
+          </button>
+        </div>
+
+        <div class="mt-4 text-center text-slate-400 text-sm">
+          <span data-i18n="have_acc">Já tem conta?</span>
+          <button onclick="showPage('login-page')" class="text-purple-400 hover:text-purple-300 font-semibold ml-1" data-i18n="signin">Entrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════ MAIN APP ═══════════════════════════════ -->
+<div id="app-page" class="page">
+  <!-- Sidebar -->
+  <div id="sidebar" class="sidebar">
+    <div class="p-5">
+      <div class="flex items-center gap-2 mb-8">
+        <span class="text-2xl">🎵</span>
+        <span class="text-xl font-bold text-white">GigMatch</span>
+        <div class="ml-auto flex items-center gap-2">
+          <!-- In-app language toggle -->
+          <div class="lang-toggle" id="lang-toggle-app">
+            <button class="lang-btn active" id="lang-pt-app" onclick="setLang('pt')">PT</button>
+            <button class="lang-btn" id="lang-en-app" onclick="setLang('en')">EN</button>
+          </div>
+          <button class="md:hidden text-slate-400" onclick="toggleSidebar()"><i class="fas fa-times"></i></button>
+        </div>
+      </div>
+      <div id="sidebar-user" class="flex items-center gap-3 mb-6 p-3 rounded-xl" style="background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.2);">
+        <div id="sidebar-avatar" class="avatar text-sm">?</div>
+        <div class="min-w-0">
+          <div id="sidebar-name" class="text-white font-semibold text-sm truncate">...</div>
+          <div id="sidebar-role-badge" class="mt-1"></div>
+        </div>
+      </div>
+      <nav id="nav-links" class="space-y-1"></nav>
+      <div class="mt-8 pt-6" style="border-top:1px solid rgba(255,255,255,.08);">
+        <button onclick="handleLogout()" class="nav-link w-full text-red-400 hover:bg-red-900/20 hover:text-red-300">
+          <i class="fas fa-sign-out-alt"></i><span data-i18n="signout">Sair</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile header -->
+  <div class="md:hidden fixed top-0 w-full z-50 flex items-center px-4 py-3 gap-3" style="background:#111827;border-bottom:1px solid rgba(255,255,255,.08);">
+    <button onclick="toggleSidebar()" class="text-slate-400"><i class="fas fa-bars text-lg"></i></button>
+    <span class="text-white font-bold">🎵 GigMatch</span>
+    <div class="ml-auto flex gap-2 items-center">
+      <div class="lang-toggle" id="lang-toggle-mobile">
+        <button class="lang-btn active" onclick="setLang('pt')">PT</button>
+        <button class="lang-btn" onclick="setLang('en')">EN</button>
+      </div>
+      <button onclick="showSection('notifications-section')" class="relative text-slate-400 p-2">
+        <i class="fas fa-bell"></i><div id="notif-dot-mobile" class="notification-dot hidden"></div>
+      </button>
+    </div>
+  </div>
+
+  <!-- Main content -->
+  <div class="main-content pt-16 md:pt-0">
+
+    <!-- DASHBOARD -->
+    <div id="dashboard-section" class="section">
+      <div class="section-hdr">
+        <h1 data-i18n="dashboard">Dashboard</h1>
+        <p id="welcome-message">...</p>
+      </div>
+      <div id="dashboard-stats" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8"></div>
+      <div class="grid md:grid-cols-2 gap-6">
+        <div>
+          <h3 class="text-base font-semibold text-white mb-4" data-i18n="recent_activity">Atividade Recente</h3>
+          <div id="dashboard-activity" class="space-y-3"><div class="loading"><div class="spinner"></div></div></div>
+        </div>
+        <div>
+          <h3 class="text-base font-semibold text-white mb-4" data-i18n="notifications">Notificações</h3>
+          <div id="dashboard-notifications" class="space-y-3"><div class="loading"><div class="spinner"></div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FIND PERFORMERS -->
+    <div id="performers-section" class="section">
+      <div class="flex flex-col md:flex-row gap-4 mb-6">
+        <div class="section-hdr mb-0 flex-1">
+          <h1 data-i18n="find_performers">Encontrar Artistas</h1>
+          <p data-i18n="find_performers_sub">Navegue por músicos, bandas e artistas locais</p>
+        </div>
+        <div class="flex gap-2 flex-wrap items-end">
+          <input type="text" id="perf-search" class="input-field" style="width:200px;" data-i18n-placeholder="search" onkeyup="debounceSearch('performers')">
+          <select id="perf-act-filter" class="select-field" style="width:170px;" onchange="loadPerformers()"><option value="" data-i18n="all_acts">Todos os Tipos</option></select>
+          <select id="perf-genre-filter" class="select-field" style="width:150px;" onchange="loadPerformers()"><option value="" data-i18n="all_genres">Todos os Gêneros</option></select>
+        </div>
+      </div>
+      <div id="performers-grid" class="grid-performers"><div class="loading"><div class="spinner"></div></div></div>
+      <div id="performers-pagination" class="flex justify-center gap-3 mt-6"></div>
+    </div>
+
+    <!-- EVENTS -->
+    <div id="events-section" class="section">
+      <div class="flex flex-col md:flex-row gap-4 mb-6">
+        <div class="section-hdr mb-0 flex-1">
+          <h1 data-i18n="browse_events">Explorar Eventos</h1>
+          <p data-i18n="browse_events_sub">Encontre eventos compatíveis com o seu estilo</p>
+        </div>
+        <div class="flex gap-2 flex-wrap items-end">
+          <input type="text" id="event-search" class="input-field" style="width:200px;" data-i18n-placeholder="search" onkeyup="debounceSearch('events')">
+          <select id="event-type-filter" class="select-field" style="width:180px;" onchange="loadEvents()"><option value="" data-i18n="all_types">Todos os Tipos</option></select>
+          <button onclick="openEventWizard()" id="create-event-btn" class="btn-primary hidden"><i class="fas fa-plus mr-2"></i><span data-i18n="new_event">Novo Evento</span></button>
+        </div>
+      </div>
+      <div id="events-grid" class="grid-events"><div class="loading"><div class="spinner"></div></div></div>
+    </div>
+
+    <!-- BOOKINGS -->
+    <div id="bookings-section" class="section">
+      <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
+        <div class="section-hdr mb-0"><h1 data-i18n="my_bookings">Meus Contratos</h1><p data-i18n="my_bookings_sub">Gerencie seus shows e reservas</p></div>
+        <div class="flex gap-2 flex-wrap">
+          <button onclick="filterBookings('')" class="tab active" id="tab-all" data-i18n="all">Todos</button>
+          <button onclick="filterBookings('pending')" class="tab" id="tab-pending" data-i18n="pending">Pendente</button>
+          <button onclick="filterBookings('escrow')" class="tab" id="tab-escrow" data-i18n="active">Ativo</button>
+          <button onclick="filterBookings('completed')" class="tab" id="tab-completed" data-i18n="done">Concluído</button>
+        </div>
+      </div>
+      <div id="bookings-list" class="space-y-4"><div class="loading"><div class="spinner"></div></div></div>
+    </div>
+
+    <!-- MY PROFILE -->
+    <div id="profile-section" class="section">
+      <div class="section-hdr"><h1 data-i18n="my_profile">Meu Perfil</h1><p data-i18n="my_profile_sub">Gerencie suas informações e portfólio</p></div>
+      <div id="profile-content"><div class="loading"><div class="spinner"></div></div></div>
+    </div>
+
+    <!-- MESSAGES -->
+    <div id="messages-section" class="section">
+      <div class="section-hdr"><h1 data-i18n="messages">Mensagens</h1></div>
+      <div class="grid md:grid-cols-3 gap-6">
+        <div class="card"><h3 class="font-semibold text-white mb-4" data-i18n="conversations">Conversas</h3><div id="conversations-list" class="space-y-3"><div class="loading"><div class="spinner"></div></div></div></div>
+        <div class="card md:col-span-2"><div id="chat-area"><div class="text-center text-slate-400 py-10" data-i18n="select_conv">Selecione uma conversa</div></div></div>
+      </div>
+    </div>
+
+    <!-- NOTIFICATIONS -->
+    <div id="notifications-section" class="section">
+      <div class="flex items-center justify-between mb-6">
+        <div class="section-hdr mb-0"><h1 data-i18n="notifications">Notificações</h1></div>
+        <button onclick="markAllRead()" class="btn-secondary text-sm py-2" data-i18n="mark_all_read">Marcar todas como lidas</button>
+      </div>
+      <div id="notifications-list" class="space-y-3"><div class="loading"><div class="spinner"></div></div></div>
+    </div>
+
+    <!-- SOCIAL SCORE -->
+    <div id="social-section" class="section">
+      <div class="section-hdr"><h1 data-i18n="platform_score">Pontuação & Redes Sociais</h1><p data-i18n="platform_score_sub">Compartilhe seu perfil para ganhar pontos e aparecer primeiro nas buscas</p></div>
+      <div id="social-content"><div class="loading"><div class="spinner"></div></div></div>
+    </div>
+
+    <!-- ADMIN -->
+    <div id="admin-section" class="section">
+      <div class="section-hdr"><h1 data-i18n="admin_panel">Painel Admin</h1></div>
+      <div id="admin-tabs" class="flex gap-2 mb-6 flex-wrap">
+        <button onclick="switchAdminTab('stats')" class="tab active" data-tab="stats" data-i18n="overview">Visão Geral</button>
+        <button onclick="switchAdminTab('users')" class="tab" data-tab="users" data-i18n="users">Usuários</button>
+        <button onclick="switchAdminTab('bookings')" class="tab" data-tab="bookings" data-i18n="bookings">Contratos</button>
+        <button onclick="switchAdminTab('disputes')" class="tab" data-tab="disputes" data-i18n="disputes">Disputas</button>
+        <button onclick="switchAdminTab('events')" class="tab" data-tab="events" data-i18n="events_tab">Eventos</button>
+      </div>
+      <div id="admin-content"><div class="loading"><div class="spinner"></div></div></div>
+    </div>
+
+  </div><!-- /main-content -->
+</div><!-- /app-page -->
+
+<!-- ═══════════════════════ MODALS ═══════════════════════ -->
+
+<!-- Create Event Wizard Modal -->
+<div id="create-event-modal" class="modal">
+  <div class="modal-content" style="max-width:680px;">
+    <!-- Wizard Header -->
+    <div class="flex items-center justify-between mb-2">
+      <div id="wizard-title" class="text-xl font-bold text-white"></div>
+      <button onclick="closeModal('create-event-modal')" class="text-slate-400 hover:text-white"><i class="fas fa-times text-xl"></i></button>
+    </div>
+    <!-- Progress Bar -->
+    <div class="mb-6">
+      <div class="flex justify-between text-xs text-slate-500 mb-2">
+        <span id="wizard-step-label"></span>
+        <span id="wizard-step-count"></span>
+      </div>
+      <div style="height:4px;background:rgba(255,255,255,.1);border-radius:4px;">
+        <div id="wizard-progress" style="height:100%;border-radius:4px;background:linear-gradient(90deg,#7C3AED,#F59E0B);transition:width .4s ease;"></div>
+      </div>
+    </div>
+
+    <!-- Step Content -->
+    <div id="wizard-step-content"></div>
+
+    <!-- Navigation -->
+    <div class="flex gap-3 mt-6 pt-4" style="border-top:1px solid rgba(255,255,255,.08);">
+      <button id="wizard-back-btn" onclick="wizardBack()" class="btn-secondary" style="display:none;">← <span id="wizard-back-label">Voltar</span></button>
+      <div class="flex-1"></div>
+      <button id="wizard-next-btn" onclick="wizardNext()" class="btn-primary"><span id="wizard-next-label">Próximo →</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- Performer Detail Modal (view public profile) -->
+<div id="performer-detail-modal" class="modal">
+  <div class="modal-content wide">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-xl font-bold text-white" data-i18n="performer_profile">Perfil do Artista</h2>
+      <button onclick="closeModal('performer-detail-modal')" class="text-slate-400 hover:text-white"><i class="fas fa-times text-xl"></i></button>
+    </div>
+    <div id="performer-detail-content"><div class="loading"><div class="spinner"></div></div></div>
+  </div>
+</div>
+
+<!-- Event Detail Modal -->
+<div id="event-detail-modal" class="modal">
+  <div class="modal-content">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-xl font-bold text-white" data-i18n="event_details">Detalhes do Evento</h2>
+      <button onclick="closeModal('event-detail-modal')" class="text-slate-400 hover:text-white"><i class="fas fa-times text-xl"></i></button>
+    </div>
+    <div id="event-detail-content"><div class="loading"><div class="spinner"></div></div></div>
+  </div>
+</div>
+
+<!-- Booking Request Modal -->
+<div id="booking-request-modal" class="modal">
+  <div class="modal-content" style="max-width:500px;">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-xl font-bold text-white" data-i18n="apply_event">Candidatar-se ao Evento</h2>
+      <button onclick="closeModal('booking-request-modal')" class="text-slate-400 hover:text-white"><i class="fas fa-times text-xl"></i></button>
+    </div>
+    <div id="booking-request-content"></div>
+  </div>
+</div>
+
+<!-- Rating Modal -->
+<div id="rating-modal" class="modal">
+  <div class="modal-content" style="max-width:450px;">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-xl font-bold text-white" data-i18n="rate_experience">Avaliar Experiência</h2>
+      <button onclick="closeModal('rating-modal')" class="text-slate-400 hover:text-white"><i class="fas fa-times text-xl"></i></button>
+    </div>
+    <div id="rating-content"></div>
+  </div>
+</div>
+
+<!-- Dispute Modal -->
+<div id="dispute-modal" class="modal">
+  <div class="modal-content" style="max-width:500px;">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-xl font-bold text-white" data-i18n="open_dispute">Abrir Disputa</h2>
+      <button onclick="closeModal('dispute-modal')" class="text-slate-400 hover:text-white"><i class="fas fa-times text-xl"></i></button>
+    </div>
+    <div id="dispute-content"></div>
+  </div>
+</div>
+
+<!-- OAuth Role Picker Modal (new social users only) -->
+<div id="oauth-role-modal" class="modal">
+  <div class="modal-content" style="max-width:440px;">
+    <div class="text-center mb-6">
+      <div id="oauth-role-avatar" class="w-16 h-16 rounded-full mx-auto mb-3 overflow-hidden flex items-center justify-center text-2xl font-bold" style="background:linear-gradient(135deg,#7C3AED,#5B21B6);color:white;"></div>
+      <h2 class="text-xl font-bold text-white" id="oauth-role-title">Bem-vindo ao GigMatch!</h2>
+      <p class="text-slate-400 text-sm mt-1" id="oauth-role-sub">Como você quer usar a plataforma?</p>
+    </div>
+    <div class="grid grid-cols-2 gap-4 mb-6">
+      <button onclick="completeOAuthRole('performer')"
+        class="p-5 rounded-xl border-2 text-center cursor-pointer transition-all hover:border-purple-500 hover:bg-purple-900/20"
+        style="border-color:rgba(255,255,255,.15);background:rgba(255,255,255,.03);">
+        <div class="text-3xl mb-2">🎸</div>
+        <div class="font-bold text-white" data-i18n="role_performer">Artista / Músico</div>
+        <div class="text-xs text-slate-400 mt-1" data-i18n="role_performer_sub">Músicos, DJs, Artistas</div>
+      </button>
+      <button onclick="completeOAuthRole('host')"
+        class="p-5 rounded-xl border-2 text-center cursor-pointer transition-all hover:border-yellow-500 hover:bg-yellow-900/20"
+        style="border-color:rgba(255,255,255,.15);background:rgba(255,255,255,.03);">
+        <div class="text-3xl mb-2">🎪</div>
+        <div class="font-bold text-white" data-i18n="role_host">Contratante</div>
+        <div class="text-xs text-slate-400 mt-1" data-i18n="role_host_sub">Organizadores, Locais</div>
+      </button>
+    </div>
+    <button onclick="closeModal('oauth-role-modal')" class="btn-secondary w-full text-sm py-2" data-i18n="cancel">Cancelar</button>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast hidden"></div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

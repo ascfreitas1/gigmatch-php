@@ -1,0 +1,7 @@
+# Git ignore for GigMatch PHP
+.env
+*.log
+*.sql.bak
+/vendor/
+.DS_Store
+Thumbs.db

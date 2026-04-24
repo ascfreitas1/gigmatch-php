@@ -1,0 +1,32 @@
+Options -Indexes
+
+# Rewrite all requests to index.php EXCEPT real files/dirs
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.php [QSA,L]
+
+# Security headers
+Header always set X-Content-Type-Options "nosniff"
+Header always set X-Frame-Options "SAMEORIGIN"
+Header always set X-XSS-Protection "1; mode=block"
+
+# Gzip compression
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/css application/json application/javascript
+</IfModule>
+
+# Cache static assets
+<FilesMatch "\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2)$">
+  Header set Cache-Control "max-age=604800, public"
+</FilesMatch>
+
+# Block access to sensitive directories
+<FilesMatch "\.(sql|env|log|md|json|lock)$">
+  Order deny,allow
+  Deny from all
+</FilesMatch>
+<DirectoryMatch "^.*(core|database|api).*$">
+  Order deny,allow
+  Deny from all
+</DirectoryMatch>
