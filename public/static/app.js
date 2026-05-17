@@ -9,6 +9,14 @@ let perfPage = 1
 let eventPage = 1
 
 // =====================
+// GLOBAL LOCATION STATE
+// =====================
+let userLat   = null   // decimal degrees
+let userLon   = null   // decimal degrees
+let userCity  = localStorage.getItem('gm_city') || ''   // human-readable city name
+let locationWatching = false   // true while GPS is running
+
+// =====================
 // UTILITY FUNCTIONS
 // =====================
 function showToast(msg, type = 'success') {
@@ -30,7 +38,15 @@ function showSection(id) {
   document.getElementById(id)?.classList.add('active')
   document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'))
   document.querySelector(`[data-section="${id}"]`)?.classList.add('active')
-  
+
+  // Bottom-nav highlight
+  document.querySelectorAll('.bottom-nav-item').forEach(b => b.classList.remove('active'))
+  document.querySelector(`.bottom-nav-item[data-bnav="${id}"]`)?.classList.add('active')
+
+  // Close sidebar + backdrop on mobile
+  document.getElementById('sidebar')?.classList.remove('open')
+  document.getElementById('sidebar-backdrop')?.classList.remove('visible')
+
   // Load section data
   if (id === 'dashboard-section') loadDashboard()
   else if (id === 'performers-section') { loadMeta(); loadPerformers() }
@@ -47,7 +63,10 @@ function openModal(id) { document.getElementById(id)?.classList.add('open') }
 function closeModal(id) { document.getElementById(id)?.classList.remove('open') }
 
 function toggleSidebar() {
-  document.getElementById('sidebar')?.classList.toggle('open')
+  const sb = document.getElementById('sidebar')
+  const bd = document.getElementById('sidebar-backdrop')
+  sb?.classList.toggle('open')
+  bd?.classList.toggle('visible')
 }
 
 async function apiCall(method, path, data = null) {
@@ -484,7 +503,18 @@ async function loadPerformers() {
   if (q) url += `&q=${encodeURIComponent(q)}`
   if (act_type) url += `&act_type=${encodeURIComponent(act_type)}`
   if (genre) url += `&genre=${encodeURIComponent(genre)}`
-  
+  // Attach user location if available
+  if (userLat !== null && userLon !== null) {
+    url += `&lat=${userLat.toFixed(6)}&lon=${userLon.toFixed(6)}&radius=150`
+  }
+  // Show / hide geo tag
+  const geoTagP = document.getElementById('perf-geo-tag')
+  if (geoTagP) {
+    if (userCity) {
+      geoTagP.textContent = `\uD83D\uDCCD ${currentLang==='pt'?'Perto de':'Near'} ${userCity}`
+      geoTagP.classList.remove('hidden')
+    } else { geoTagP.classList.add('hidden') }
+  }
   const res = await apiCall('GET', url)
   if (!res.ok) { grid.innerHTML = `<p class="text-red-400">${res.error}</p>`; return }
   
@@ -759,7 +789,18 @@ async function loadEvents() {
   let url = `/events?page=1&limit=12`
   if (q) url += `&q=${encodeURIComponent(q)}`
   if (event_type) url += `&event_type=${encodeURIComponent(event_type)}`
-  
+  // Attach user location if available
+  if (userLat !== null && userLon !== null) {
+    url += `&lat=${userLat.toFixed(6)}&lon=${userLon.toFixed(6)}&radius=150`
+  }
+  // Show / hide geo tag
+  const geoTagE = document.getElementById('events-geo-tag')
+  if (geoTagE) {
+    if (userCity) {
+      geoTagE.textContent = `\uD83D\uDCCD ${currentLang==='pt'?'Eventos perto de':'Events near'} ${userCity}`
+      geoTagE.classList.remove('hidden')
+    } else { geoTagE.classList.add('hidden') }
+  }
   const res = await apiCall('GET', url)
   if (!res.ok) { grid.innerHTML = `<p class="text-red-400">${res.error}</p>`; return }
   
@@ -2528,7 +2569,13 @@ const BUDGET_OPTIONS = [
 
 function openEventWizard() {
   wizardStep = 0
-  wizardData = { selectedActTypes: [], selectedGenres: [], selectedVibe: '' }
+  // Pre-fill location from global state
+  wizardData = {
+    selectedActTypes: [], selectedGenres: [], selectedVibe: '',
+    city: userCity || '',
+    lat: userLat || null,
+    lon: userLon || null,
+  }
   openModal('create-event-modal')
   loadEventMeta().then(() => renderWizardStep())
 }
@@ -2791,13 +2838,22 @@ function wGetLocation(btn) {
   }
   btn.textContent = isPt ? '⏳ Obtendo localização...' : '⏳ Getting location...'
   btn.disabled = true
-  navigator.geolocation.getCurrentPosition(pos => {
+  navigator.geolocation.getCurrentPosition(async pos => {
     wizardData.lat = pos.coords.latitude
     wizardData.lon = pos.coords.longitude
+    // Also update global location state
+    userLat = wizardData.lat
+    userLon = wizardData.lon
     const latEl = document.getElementById('wiz-lat')
     const lonEl = document.getElementById('wiz-lon')
     if (latEl) latEl.value = wizardData.lat.toFixed(6)
     if (lonEl) lonEl.value = wizardData.lon.toFixed(6)
+    // Auto-fill city via reverse geocode if city field is empty
+    const cityEl = document.getElementById('wiz-city')
+    if (cityEl && !cityEl.value.trim()) {
+      const city = await reverseGeocode(wizardData.lat, wizardData.lon)
+      if (city) { cityEl.value = city; wizardData.city = city }
+    }
     btn.textContent = `✅ ${isPt ? 'Localização obtida!' : 'Location obtained!'}`
     btn.disabled = false
     showToast(isPt ? '📍 Coordenadas obtidas com sucesso!' : '📍 Coordinates obtained successfully!')
@@ -2974,12 +3030,155 @@ window.addEventListener('DOMContentLoaded', async () => {
   initCarousel()
 
   if (authToken) await initApp()
-  
-  // Auto-fill location for new event
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(pos => {
-      window.userLat = pos.coords.latitude
-      window.userLon = pos.coords.longitude
-    })
+
+  // Boot location system: restore saved city label then attempt GPS
+  if (userCity) {
+    document.querySelectorAll('.loc-city-input').forEach(el => { el.value = userCity })
+    document.querySelectorAll('.loc-icon').forEach(el => { el.textContent = '🗺️' })
   }
+  startLocationDetection()
 })
+
+// =====================
+// LOCATION SYSTEM
+// =====================
+
+/**
+ * Update every location bar element in the DOM with a city label.
+ * @param {string} label - Human-readable city name
+ * @param {boolean} detected - true = GPS / Nominatim resolved; false = manual / cached
+ */
+function updateLocationBar(label, detected = true) {
+  userCity = label
+  localStorage.setItem('gm_city', label)
+
+  const icon  = detected ? '📍' : '🗺️'
+
+  document.querySelectorAll('.loc-icon').forEach(el => { el.textContent = icon })
+  // Sync all city inputs (they double as the label)
+  document.querySelectorAll('.loc-city-input').forEach(el => {
+    if (document.activeElement !== el) el.value = label
+  })
+}
+
+/**
+ * Reverse-geocode lat/lon → city name via Nominatim.
+ */
+async function reverseGeocode(lat, lon) {
+  try {
+    const r = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`,
+      { headers: { 'Accept-Language': currentLang === 'pt' ? 'pt' : 'en', 'User-Agent': 'GigMatch/1.0' } }
+    )
+    const d = await r.json()
+    return d.address?.city || d.address?.town || d.address?.village || d.address?.municipality || d.display_name?.split(',')[0] || ''
+  } catch {
+    return ''
+  }
+}
+
+/**
+ * Forward-geocode city name → {lat, lon} via Nominatim.
+ */
+async function geocodeCity(city) {
+  try {
+    const r = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)}&format=json&limit=1`,
+      { headers: { 'Accept-Language': currentLang === 'pt' ? 'pt' : 'en', 'User-Agent': 'GigMatch/1.0' } }
+    )
+    const d = await r.json()
+    if (d && d[0]) return { lat: parseFloat(d[0].lat), lon: parseFloat(d[0].lon) }
+  } catch {}
+  return null
+}
+
+/**
+ * Try GPS → reverse-geocode → update bars and reload visible section.
+ */
+function startLocationDetection() {
+  if (!navigator.geolocation || locationWatching) return
+  locationWatching = true
+
+  // Show pulsing indicator while waiting
+  document.querySelectorAll('.loc-city-input').forEach(el => {
+    if (!el.value) {
+      el.placeholder = currentLang === 'pt' ? '⏳ Detectando...' : '⏳ Detecting...'
+    }
+  })
+
+  navigator.geolocation.getCurrentPosition(
+    async pos => {
+      userLat = pos.coords.latitude
+      userLon = pos.coords.longitude
+      const city = await reverseGeocode(userLat, userLon)
+      updateLocationBar(city || `${userLat.toFixed(2)}, ${userLon.toFixed(2)}`, true)
+      reloadCurrentSection()
+    },
+    () => {
+      locationWatching = false
+      // GPS denied — restore cached city label or reset placeholder
+      if (userCity) updateLocationBar(userCity, false)
+      else {
+        document.querySelectorAll('.loc-city-input').forEach(el => {
+          el.placeholder = currentLang === 'pt' ? 'Sua cidade' : 'Your city'
+        })
+      }
+    },
+    { timeout: 12000, enableHighAccuracy: false }
+  )
+}
+
+/** Reload performers or events if one of those sections is currently visible */
+function reloadCurrentSection() {
+  const active = document.querySelector('.section.active')
+  if (!active) return
+  if (active.id === 'performers-section') { perfPage = 1; loadPerformers() }
+  else if (active.id === 'events-section') { eventPage = 1; loadEvents() }
+}
+
+/**
+ * Called by the GPS icon button in the location bar.
+ */
+function requestGpsLocation() {
+  locationWatching = false   // allow re-attempt
+  document.querySelectorAll('.loc-city-input').forEach(el => {
+    el.value = ''
+    el.placeholder = currentLang === 'pt' ? '⏳ Detectando...' : '⏳ Detecting...'
+  })
+  startLocationDetection()
+}
+
+/**
+ * Called when the user types in the city input box and presses Enter or blurs.
+ */
+async function onCityInputCommit(el) {
+  const val = el.value.trim()
+  if (!val) return
+  el.disabled = true
+  const coords = await geocodeCity(val)
+  el.disabled = false
+  if (coords) {
+    userLat = coords.lat
+    userLon = coords.lon
+    updateLocationBar(val, true)
+    showToast(currentLang === 'pt' ? `📍 Localização definida: ${val}` : `📍 Location set: ${val}`)
+    reloadCurrentSection()
+  } else {
+    showToast(currentLang === 'pt' ? `Cidade "${val}" não encontrada.` : `City "${val}" not found.`, 'error')
+  }
+}
+
+/**
+ * Clear current location (city + coords).
+ */
+function clearLocation() {
+  userLat = null; userLon = null; userCity = ''
+  localStorage.removeItem('gm_city')
+  locationWatching = false
+  document.querySelectorAll('.loc-city-input').forEach(el => {
+    el.value = ''
+    el.placeholder = currentLang === 'pt' ? 'Sua cidade' : 'Your city'
+  })
+  document.querySelectorAll('.loc-icon').forEach(el => { el.textContent = '🗺️' })
+  reloadCurrentSection()
+}

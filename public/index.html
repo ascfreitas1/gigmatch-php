@@ -62,7 +62,46 @@
     .modal-content.wide{max-width:900px;}
     .sidebar{width:260px;min-height:100vh;background:#111827;border-right:1px solid rgba(255,255,255,.08);position:fixed;top:0;left:0;overflow-y:auto;z-index:100;}
     .main-content{margin-left:260px;min-height:100vh;padding:28px;}
-    @media(max-width:768px){.sidebar{transform:translateX(-100%)}.main-content{margin-left:0}.sidebar.open{transform:translateX(0)}}
+    /* ── Mobile responsive ─────────────────────────────── */
+    @media(max-width:768px){
+      .sidebar{transform:translateX(-100%);z-index:200;}
+      .sidebar.open{transform:translateX(0);}
+      .main-content{margin-left:0;padding:12px;padding-bottom:80px;}
+      .grid-performers,.grid-events{grid-template-columns:1fr;}
+      .modal-content{padding:18px;margin-top:10px;}
+      .modal{padding:10px;}
+      h1{font-size:1.3rem!important;}
+      .btn-primary,.btn-secondary{padding:10px 16px;font-size:14px;}
+    }
+    /* ── Location Bar ────────────────────────────────────── */
+    .loc-bar{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:24px;padding:6px 12px;transition:all .2s;min-width:0;}
+    .loc-bar:focus-within{border-color:rgba(124,58,237,.5);background:rgba(124,58,237,.08);}
+    .loc-city-input{background:transparent;border:none;outline:none;color:#fff;font-size:13px;font-weight:600;width:100px;min-width:0;}
+    .loc-city-input::placeholder{color:#64748B;}
+    .loc-gps-btn{background:none;border:none;cursor:pointer;color:#A78BFA;font-size:14px;padding:0 2px;flex-shrink:0;transition:transform .2s;}
+    .loc-gps-btn:hover{transform:scale(1.2);}
+    .loc-clear-btn{background:none;border:none;cursor:pointer;color:#64748B;font-size:11px;padding:0 2px;flex-shrink:0;}
+    .loc-clear-btn:hover{color:#EF4444;}
+    /* ── Mobile bottom nav ───────────────────────────────── */
+    .bottom-nav{display:none;}
+    @media(max-width:768px){
+      .bottom-nav{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:150;background:#111827;border-top:1px solid rgba(255,255,255,.1);padding:6px 4px 8px;justify-content:space-around;}
+      .bottom-nav-item{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 8px;border-radius:10px;cursor:pointer;color:#64748B;font-size:10px;font-weight:600;border:none;background:none;transition:all .15s;min-width:48px;}
+      .bottom-nav-item.active,.bottom-nav-item:hover{color:#A78BFA;background:rgba(124,58,237,.15);}
+      .bottom-nav-item i{font-size:18px;}
+    }
+    /* ── Touch-friendly sizes ─────────────────────────────── */
+    @media(max-width:768px){
+      .card{padding:14px;}
+      .card-flat{padding:12px;}
+      .nav-link{min-height:44px;}
+      .tab{min-height:36px;padding:6px 12px;}
+      .input-field,.select-field{min-height:44px;font-size:16px;} /* prevent iOS zoom */
+      .btn-primary,.btn-secondary{min-height:44px;}
+    }
+    /* ── Sidebar overlay backdrop ─────────────────────────── */
+    .sidebar-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:199;}
+    .sidebar-backdrop.visible{display:block;}
     .avatar{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#7C3AED,#5B21B6);display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;flex-shrink:0;}
     .score-bar{height:6px;border-radius:3px;background:rgba(255,255,255,.1);overflow:hidden;}
     .score-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,#7C3AED,#F59E0B);}
@@ -470,6 +509,17 @@
           <div id="sidebar-role-badge" class="mt-1"></div>
         </div>
       </div>
+      <!-- Sidebar location bar (desktop) -->
+      <div class="loc-bar mb-4" id="loc-bar-sidebar" style="max-width:100%;">
+        <span class="loc-icon text-sm">🗺️</span>
+        <input type="text" class="loc-city-input loc-city-label" id="loc-input-sidebar"
+          placeholder="Sua cidade"
+          style="width:0;flex:1;"
+          onkeydown="if(event.key==='Enter'){this.blur();}"
+          onblur="onCityInputCommit(this)">
+        <button onclick="requestGpsLocation()" class="loc-gps-btn" title="Detectar localização automaticamente"><i class="fas fa-location-arrow"></i></button>
+        <button onclick="clearLocation()" class="loc-clear-btn" title="Limpar"><i class="fas fa-times"></i></button>
+      </div>
       <nav id="nav-links" class="space-y-1"></nav>
       <div class="mt-8 pt-6" style="border-top:1px solid rgba(255,255,255,.08);">
         <button onclick="handleLogout()" class="nav-link w-full text-red-400 hover:bg-red-900/20 hover:text-red-300">
@@ -480,19 +530,42 @@
   </div>
 
   <!-- Mobile header -->
-  <div class="md:hidden fixed top-0 w-full z-50 flex items-center px-4 py-3 gap-3" style="background:#111827;border-bottom:1px solid rgba(255,255,255,.08);">
-    <button onclick="toggleSidebar()" class="text-slate-400"><i class="fas fa-bars text-lg"></i></button>
-    <span class="text-white font-bold">🎵 GigMatch</span>
-    <div class="ml-auto flex gap-2 items-center">
-      <div class="lang-toggle" id="lang-toggle-mobile">
-        <button class="lang-btn active" onclick="setLang('pt')">PT</button>
-        <button class="lang-btn" onclick="setLang('en')">EN</button>
+  <div class="md:hidden fixed top-0 w-full z-50" style="background:#111827;border-bottom:1px solid rgba(255,255,255,.08);">
+    <div class="flex items-center px-3 py-2 gap-2">
+      <button onclick="toggleSidebar()" class="text-slate-400 rounded-lg" style="min-width:36px;min-height:36px;"><i class="fas fa-bars text-lg"></i></button>
+      <span class="text-white font-bold text-sm flex-shrink-0">🎵 GigMatch</span>
+      <!-- Location bar (mobile) -->
+      <div class="loc-bar flex-1 mx-1" style="max-width:none;">
+        <span class="loc-icon text-sm flex-shrink-0">🗺️</span>
+        <input type="text" class="loc-city-input loc-city-label" id="loc-input-mobile"
+          placeholder="Sua cidade" style="width:0;flex:1;"
+          onkeydown="if(event.key==='Enter'){this.blur();}"
+          onblur="onCityInputCommit(this)">
+        <button onclick="requestGpsLocation()" class="loc-gps-btn" title="Detectar localização"><i class="fas fa-location-arrow"></i></button>
       </div>
-      <button onclick="showSection('notifications-section')" class="relative text-slate-400 p-2">
-        <i class="fas fa-bell"></i><div id="notif-dot-mobile" class="notification-dot hidden"></div>
-      </button>
+      <div class="flex gap-1 items-center flex-shrink-0">
+        <div class="lang-toggle" id="lang-toggle-mobile">
+          <button class="lang-btn active" onclick="setLang('pt')">PT</button>
+          <button class="lang-btn" onclick="setLang('en')">EN</button>
+        </div>
+        <button onclick="showSection('notifications-section')" class="relative text-slate-400 p-2">
+          <i class="fas fa-bell"></i><div id="notif-dot-mobile" class="notification-dot hidden"></div>
+        </button>
+      </div>
     </div>
   </div>
+
+  <!-- Sidebar backdrop (mobile) -->
+  <div class="sidebar-backdrop" id="sidebar-backdrop" onclick="toggleSidebar()"></div>
+
+  <!-- Mobile bottom navigation -->
+  <nav class="bottom-nav" id="bottom-nav">
+    <button class="bottom-nav-item" onclick="showSection('dashboard-section')" data-bnav="dashboard-section"><i class="fas fa-home"></i><span data-i18n="dashboard">Início</span></button>
+    <button class="bottom-nav-item" onclick="showSection('performers-section')" data-bnav="performers-section"><i class="fas fa-music"></i><span>Artistas</span></button>
+    <button class="bottom-nav-item" onclick="showSection('events-section')" data-bnav="events-section"><i class="fas fa-calendar"></i><span>Eventos</span></button>
+    <button class="bottom-nav-item" onclick="showSection('bookings-section')" data-bnav="bookings-section"><i class="fas fa-handshake"></i><span>Contratos</span></button>
+    <button class="bottom-nav-item" onclick="showSection('profile-section')" data-bnav="profile-section"><i class="fas fa-user"></i><span>Perfil</span></button>
+  </nav>
 
   <!-- Main content -->
   <div class="main-content pt-16 md:pt-0">
@@ -518,15 +591,16 @@
 
     <!-- FIND PERFORMERS -->
     <div id="performers-section" class="section">
-      <div class="flex flex-col md:flex-row gap-4 mb-6">
-        <div class="section-hdr mb-0 flex-1">
+      <div class="flex flex-col gap-4 mb-6">
+        <div class="section-hdr mb-0">
           <h1 data-i18n="find_performers">Encontrar Artistas</h1>
           <p data-i18n="find_performers_sub">Navegue por músicos, bandas e artistas locais</p>
+          <div id="perf-geo-tag" class="hidden mt-1 text-xs text-purple-400 font-semibold"></div>
         </div>
         <div class="flex gap-2 flex-wrap items-end">
-          <input type="text" id="perf-search" class="input-field" style="width:200px;" data-i18n-placeholder="search" onkeyup="debounceSearch('performers')">
-          <select id="perf-act-filter" class="select-field" style="width:170px;" onchange="loadPerformers()"><option value="" data-i18n="all_acts">Todos os Tipos</option></select>
-          <select id="perf-genre-filter" class="select-field" style="width:150px;" onchange="loadPerformers()"><option value="" data-i18n="all_genres">Todos os Gêneros</option></select>
+          <input type="text" id="perf-search" class="input-field" style="flex:1;min-width:140px;" data-i18n-placeholder="search" onkeyup="debounceSearch('performers')">
+          <select id="perf-act-filter" class="select-field" style="flex:1;min-width:140px;" onchange="loadPerformers()"><option value="" data-i18n="all_acts">Todos os Tipos</option></select>
+          <select id="perf-genre-filter" class="select-field" style="flex:1;min-width:130px;" onchange="loadPerformers()"><option value="" data-i18n="all_genres">Todos os Gêneros</option></select>
         </div>
       </div>
       <div id="performers-grid" class="grid-performers"><div class="loading"><div class="spinner"></div></div></div>
@@ -535,14 +609,15 @@
 
     <!-- EVENTS -->
     <div id="events-section" class="section">
-      <div class="flex flex-col md:flex-row gap-4 mb-6">
-        <div class="section-hdr mb-0 flex-1">
+      <div class="flex flex-col gap-4 mb-6">
+        <div class="section-hdr mb-0">
           <h1 data-i18n="browse_events">Explorar Eventos</h1>
           <p data-i18n="browse_events_sub">Encontre eventos compatíveis com o seu estilo</p>
+          <div id="events-geo-tag" class="hidden mt-1 text-xs text-yellow-400 font-semibold"></div>
         </div>
         <div class="flex gap-2 flex-wrap items-end">
-          <input type="text" id="event-search" class="input-field" style="width:200px;" data-i18n-placeholder="search" onkeyup="debounceSearch('events')">
-          <select id="event-type-filter" class="select-field" style="width:180px;" onchange="loadEvents()"><option value="" data-i18n="all_types">Todos os Tipos</option></select>
+          <input type="text" id="event-search" class="input-field" style="flex:1;min-width:140px;" data-i18n-placeholder="search" onkeyup="debounceSearch('events')">
+          <select id="event-type-filter" class="select-field" style="flex:1;min-width:160px;" onchange="loadEvents()"><option value="" data-i18n="all_types">Todos os Tipos</option></select>
           <button onclick="openEventWizard()" id="create-event-btn" class="btn-primary hidden"><i class="fas fa-plus mr-2"></i><span data-i18n="new_event">Novo Evento</span></button>
         </div>
       </div>
